@@ -1,5 +1,14 @@
-﻿namespace Dentextist;
+﻿using System.Runtime.CompilerServices;
 
+namespace Dentextist;
+
+/// <summary>
+/// Provides a lightweight string builder that only supports appending text
+/// in a growing character buffer.
+/// </summary>
+/// <remarks>
+/// This is the underlying type used in <seealso cref="IndentedStringBuilder"/>.
+/// </remarks>
 public class LimitedStringBuilder
 {
     private char[] _buffer;
@@ -25,6 +34,20 @@ public class LimitedStringBuilder
         _length = 0;
     }
 
+    public LimitedStringBuilder AppendNonNull(string? text)
+    {
+        if (text is not null)
+            Append(text);
+        return this;
+    }
+
+    public LimitedStringBuilder Append(
+        [InterpolatedStringHandlerArgument("")]
+        InterpolatedStringHandler text)
+    {
+        return this;
+    }
+
     public LimitedStringBuilder Append(string text)
     {
         EnsureCapacity(text.Length);
@@ -47,10 +70,8 @@ public class LimitedStringBuilder
             return this;
 
         EnsureCapacity(count);
-        for (int i = 0; i < count; i++)
-        {
-            _buffer[_length + i] = c;
-        }
+        var indentationSpan = _buffer.AsSpan()[_length..(_length + count)];
+        indentationSpan.Fill(c);
         _length += count;
         return this;
     }
@@ -66,6 +87,15 @@ public class LimitedStringBuilder
         span.CopyTo(new Span<char>(_buffer, _length, span.Length));
         _length += span.Length;
         return this;
+    }
+
+    public LimitedStringBuilder AppendLine(
+        [InterpolatedStringHandlerArgument("")]
+        InterpolatedStringHandler text)
+    {
+        return AppendLine();
+        // The invocation of the Append method should be unnecessary
+        return Append(text).AppendLine();
     }
 
     public LimitedStringBuilder AppendLine(string text)
@@ -111,5 +141,37 @@ public class LimitedStringBuilder
         _buffer.CopyTo(newBuffer, 0);
         _buffer = newBuffer;
         _capacity = newCapacity;
+    }
+
+    /// <summary>
+    /// Handles string interpolation by appending the text to the builder
+    /// itself without calculating the interpolation of the string before
+    /// appending it to the buffer.
+    /// For example, appending $"{A}{B}{C}" will be the equivalent of appending
+    /// A, B and C separately with 3 invocations of the append method, without
+    /// calculating and storing A + B + C and then appending that.
+    /// </summary>
+    [InterpolatedStringHandler]
+    public readonly ref struct InterpolatedStringHandler
+    {
+        private readonly LimitedStringBuilder _builder;
+
+        public InterpolatedStringHandler(
+            int literalLength, int formattedCount, LimitedStringBuilder builder)
+        {
+            _builder = builder;
+            _builder.EnsureCapacity(literalLength);
+        }
+
+        public void AppendLiteral(string s)
+        {
+            _builder.Append(s);
+        }
+
+        public void AppendFormatted<T>(T? value)
+        {
+            var str = value?.ToString();
+            _builder.AppendNonNull(str);
+        }
     }
 }

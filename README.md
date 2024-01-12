@@ -6,6 +6,8 @@ A lightweight package containing string builders supporting custom indentation a
 
 This package can be a helpful partner when writing [Roslyn source generators](https://learn.microsoft.com/en-us/dotnet/csharp/roslyn-sdk/source-generators-overview).
 
+View the version history [here](VersionHistory.md).
+
 ## Package
 
 The package is found on [NuGet](https://www.nuget.org/packages/Dentextist).
